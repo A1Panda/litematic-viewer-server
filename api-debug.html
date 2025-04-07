@@ -1,0 +1,398 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Litematic Viewer API 调试工具</title>
+
+    <!-- Deepslate -->
+    <script src="https://unpkg.com/deepslate@0.10.1"></script>
+    <script src="https://unpkg.com/gl-matrix@3.4.3/gl-matrix-min.js"></script>
+
+    <script src="resource/assets.js"></script>
+    <script src="resource/opaque.js"></script>
+
+    <!-- 项目文件 -->
+    <script src="src/deepslate-helpers.js"></script>
+    <script src="src/litematic-utils.js"></script>
+    <script src="src/api.js"></script>
+
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .section {
+            margin-bottom: 20px;
+            padding: 15px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .result {
+            margin-top: 10px;
+            padding: 10px;
+            background: #f8f8f8;
+            border-radius: 4px;
+            min-height: 20px;
+        }
+        #render-result {
+            text-align: center;
+            margin-top: 20px;
+        }
+        #render-result img {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        button {
+            padding: 8px 16px;
+            background: #4CAF50;
+            color: white;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            margin: 5px;
+        }
+        button:hover {
+            background: #45a049;
+        }
+        input[type="number"], input[type="text"] {
+            padding: 6px;
+            margin: 5px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .error {
+            color: red;
+            margin-top: 5px;
+        }
+        #material-list {
+            margin-top: 10px;
+            max-height: 400px;
+            overflow-y: auto;
+        }
+        .material-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px;
+            border-bottom: 1px solid #eee;
+        }
+        .material-item:nth-child(odd) {
+            background: #f5f5f5;
+        }
+        .material-count {
+            font-weight: bold;
+            margin-left: 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Litematic Viewer API 调试工具</h1>
+
+        <!-- 资源加载状态 -->
+        <div class="section">
+            <h2>资源状态</h2>
+            <div id="resource-status" class="result">等待资源加载...</div>
+        </div>
+
+        <!-- 文件加载 -->
+        <div class="section">
+            <h2>加载文件</h2>
+            <input type="file" id="file-input" accept=".litematic">
+            <div id="file-result" class="result"></div>
+        </div>
+
+        <!-- 物品列表 -->
+        <div class="section">
+            <h2>物品列表</h2>
+            <button onclick="showMaterialList()">显示物品列表</button>
+            <button onclick="exportMaterialListCSV()">导出CSV</button>
+            <div id="material-list" class="result"></div>
+        </div>
+
+        <!-- 渲染测试 -->
+        <div class="section">
+            <h2>渲染测试</h2>
+            <div>
+                <label>宽度: <input type="number" id="width" value="1920"></label>
+                <label>高度: <input type="number" id="height" value="1080"></label>
+                <select id="resolution-preset" onchange="updateResolution()">
+                    <option value="1920x1080">1080p (1920x1080)</option>
+                    <option value="2560x1440">2K (2560x1440)</option>
+                    <option value="3840x2160">4K (3840x2160)</option>
+                    <option value="custom">自定义</option>
+                </select>
+                <label>缩放倍数: <input type="number" id="scale" value="1.0" min="0.1" max="4.0" step="0.1"></label>
+                <label>俯仰角: <input type="number" id="pitch" value="0.6" step="0.1"></label>
+                <label>偏航角: <input type="number" id="yaw" value="0.8" step="0.1"></label>
+                <label><input type="checkbox" id="auto-position" checked> 自动定位</label>
+            </div>
+            <div>
+                <h3>相机位置控制</h3>
+                <div>
+                    <label>X: <input type="number" id="camera-x" value="0" step="1"></label>
+                    <label>Y: <input type="number" id="camera-y" value="0" step="1"></label>
+                    <label>Z: <input type="number" id="camera-z" value="0" step="1"></label>
+                    <button onclick="updateCameraPosition()">更新相机位置</button>
+                </div>
+                <div>
+                    <button onclick="getCameraPosition()">获取当前相机位置</button>
+                </div>
+            </div>
+            <button onclick="renderTest()">渲染</button>
+            <button onclick="renderThreeViewsTest()">渲染三视图</button>
+            <div id="render-status" class="result"></div>
+            <div id="render-result">
+                <!-- 渲染结果将在这里显示 -->
+            </div>
+            <div id="three-views-result" style="display: flex; justify-content: space-between; margin-top: 20px;">
+                <!-- 三视图结果将在这里显示 -->
+            </div>
+        </div>
+    </div>
+
+    <!-- 纹理图集 -->
+    <img id="atlas" src="resource/atlas.png" alt="Texture atlas" crossorigin="anonymous" hidden>
+
+    <script>
+        // 资源加载
+        document.addEventListener("DOMContentLoaded", async function() {
+            const resourceStatus = document.getElementById('resource-status');
+            try {
+                const image = document.getElementById('atlas');
+                if (image.complete) {
+                    loadDeepslateResources(image);
+                    resourceStatus.textContent = '资源加载完成';
+                } else {
+                    image.onload = () => {
+                        loadDeepslateResources(image);
+                        resourceStatus.textContent = '资源加载完成';
+                    };
+                    image.onerror = (error) => {
+                        resourceStatus.innerHTML = '<span class="error">加载纹理图集失败: ' + error + '</span>';
+                    };
+                }
+            } catch (error) {
+                resourceStatus.innerHTML = '<span class="error">资源加载错误: ' + error.message + '</span>';
+            }
+        });
+
+        // 文件加载处理
+        document.getElementById('file-input').addEventListener('change', async function(event) {
+            const fileResult = document.getElementById('file-result');
+            try {
+                const file = event.target.files[0];
+                if (!file) return;
+                
+                fileResult.textContent = '正在加载文件...';
+                await litematicViewerAPI.loadFromFile(file);
+                fileResult.textContent = '文件加载成功: ' + file.name;
+            } catch (error) {
+                fileResult.innerHTML = '<span class="error">文件加载失败: ' + error.message + '</span>';
+            }
+        });
+
+        // 显示物品列表
+        async function showMaterialList() {
+            const materialList = document.getElementById('material-list');
+            try {
+                const materials = litematicViewerAPI.getMaterialList();
+                
+                // 按数量排序
+                const sortedMaterials = Object.entries(materials)
+                    .sort(([,a], [,b]) => b - a);
+
+                // 显示列表
+                materialList.innerHTML = sortedMaterials
+                    .map(([name, count]) => `
+                        <div class="material-item">
+                            <span class="material-name">${name.replace('minecraft:', '')}</span>
+                            <span class="material-count">${count}</span>
+                        </div>
+                    `).join('');
+            } catch (error) {
+                materialList.innerHTML = '<span class="error">获取物品列表失败: ' + error.message + '</span>';
+            }
+        }
+
+        // 导出CSV
+        function exportMaterialListCSV() {
+            try {
+                const csv = litematicViewerAPI.exportMaterialListCSV();
+                const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+                const link = document.createElement('a');
+                link.href = URL.createObjectURL(blob);
+                link.download = 'material_list.csv';
+                link.click();
+                URL.revokeObjectURL(link.href);
+            } catch (error) {
+                alert('导出CSV失败: ' + error.message);
+            }
+        }
+
+        // 添加分辨率预设切换功能
+        function updateResolution() {
+            const preset = document.getElementById('resolution-preset').value;
+            if (preset === 'custom') {
+                return;
+            }
+            
+            const [width, height] = preset.split('x').map(Number);
+            document.getElementById('width').value = width;
+            document.getElementById('height').value = height;
+        }
+
+        // 修改渲染测试函数
+        async function renderTest() {
+            const renderStatus = document.getElementById('render-status');
+            const renderResult = document.getElementById('render-result');
+            
+            try {
+                renderStatus.textContent = '开始渲染...';
+                
+                let width = parseInt(document.getElementById('width').value);
+                let height = parseInt(document.getElementById('height').value);
+                const scale = parseFloat(document.getElementById('scale').value);
+                
+                // 应用缩放倍数
+                width = Math.floor(width * scale);
+                height = Math.floor(height * scale);
+                
+                const cameraPitch = parseFloat(document.getElementById('pitch').value);
+                const cameraYaw = parseFloat(document.getElementById('yaw').value);
+                const autoPosition = document.getElementById('auto-position').checked;
+
+                renderStatus.textContent = `正在渲染 ${width}x${height} 分辨率图像...`;
+
+                const imageData = await litematicViewerAPI.renderToImage({
+                    width,
+                    height,
+                    cameraPitch,
+                    cameraYaw,
+                    autoPosition
+                });
+
+                // 清除旧的渲染结果
+                renderResult.innerHTML = '';
+                
+                // 创建新的图片元素显示渲染结果
+                const img = new Image();
+                img.src = imageData;
+                img.onload = () => {
+                    renderStatus.textContent = `渲染完成 (${width}x${height})`;
+                };
+                img.onerror = () => {
+                    renderStatus.innerHTML = '<span class="error">图片加载失败</span>';
+                };
+                renderResult.appendChild(img);
+                
+            } catch (error) {
+                renderStatus.innerHTML = '<span class="error">渲染失败: ' + error.message + '</span>';
+                renderResult.innerHTML = '';
+            }
+        }
+
+        // 更新相机位置
+        function updateCameraPosition() {
+            const x = parseFloat(document.getElementById('camera-x').value);
+            const y = parseFloat(document.getElementById('camera-y').value);
+            const z = parseFloat(document.getElementById('camera-z').value);
+            const pitch = parseFloat(document.getElementById('pitch').value);
+            const yaw = parseFloat(document.getElementById('yaw').value);
+
+            litematicViewerAPI.setCameraPosition({
+                position: [x, y, z],
+                pitch: pitch,
+                yaw: yaw
+            });
+
+            document.getElementById('render-status').textContent = '相机位置已更新';
+        }
+
+        // 获取当前相机位置
+        function getCameraPosition() {
+            const pos = litematicViewerAPI.getCameraPosition();
+            document.getElementById('camera-x').value = pos.position[0];
+            document.getElementById('camera-y').value = pos.position[1];
+            document.getElementById('camera-z').value = pos.position[2];
+            document.getElementById('pitch').value = pos.pitch;
+            document.getElementById('yaw').value = pos.yaw;
+            document.getElementById('render-status').textContent = '已获取当前相机位置';
+        }
+
+        // 修改三视图渲染测试函数
+        async function renderThreeViewsTest() {
+            const renderStatus = document.getElementById('render-status');
+            const threeViewsResult = document.getElementById('three-views-result');
+            
+            try {
+                renderStatus.textContent = '开始渲染三视图...';
+                
+                let width = parseInt(document.getElementById('width').value);
+                let height = parseInt(document.getElementById('height').value);
+                const scale = parseFloat(document.getElementById('scale').value);
+                
+                // 应用缩放倍数
+                width = Math.floor(width * scale);
+                height = Math.floor(height * scale);
+
+                renderStatus.textContent = `正在渲染三视图 (每视图 ${width}x${height})...`;
+
+                const views = await litematicViewerAPI.renderThreeViews({
+                    width,
+                    height
+                });
+
+                // 清除旧的渲染结果
+                threeViewsResult.innerHTML = '';
+                
+                // 创建视图容器
+                const viewContainers = {
+                    '正视图': views.frontView,
+                    '侧视图': views.sideView,
+                    '俯视图': views.topView
+                };
+
+                // 显示所有视图
+                Object.entries(viewContainers).forEach(([title, imageData]) => {
+                    const container = document.createElement('div');
+                    container.style.flex = '1';
+                    container.style.margin = '10px';
+                    container.style.textAlign = 'center';
+                    
+                    const titleElem = document.createElement('h4');
+                    titleElem.textContent = title;
+                    container.appendChild(titleElem);
+                    
+                    const img = new Image();
+                    img.src = imageData;
+                    img.style.maxWidth = '100%';
+                    img.style.height = 'auto';
+                    img.style.border = '1px solid #ddd';
+                    img.style.borderRadius = '4px';
+                    container.appendChild(img);
+                    
+                    threeViewsResult.appendChild(container);
+                });
+                
+                renderStatus.textContent = '三视图渲染完成';
+                
+            } catch (error) {
+                renderStatus.innerHTML = '<span class="error">三视图渲染失败: ' + error.message + '</span>';
+                threeViewsResult.innerHTML = '';
+            }
+        }
+    </script>
+</body>
+</html>
