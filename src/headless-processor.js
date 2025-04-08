@@ -347,4 +347,5 @@ class LitematicProcessor {
     }
 }
 
+// 导出 LitematicProcessor 类
 module.exports = LitematicProcessor; 

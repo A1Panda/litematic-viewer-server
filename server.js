@@ -66,21 +66,44 @@ const server = http.createServer(async (req, res) => {
     } 
     // 文件下载路由
     else if (url.pathname.startsWith('/api/download/')) {
-        const processId = url.pathname.split('/')[3];
-        const filename = url.pathname.split('/')[4];
-        const filePath = path.join(processor.outputDir, processId, filename);
+        try {
+            const parts = url.pathname.split('/');
+            const processId = parts[3];
+            const filename = parts[4];
+            
+            // 构建正确的文件路径
+            const baseName = path.basename(filename, path.extname(filename));
+            const filePath = path.join(processor.outputDir, `test_${processId}`, filename);
 
-        if (fs.existsSync(filePath)) {
-            const stat = fs.statSync(filePath);
-            res.writeHead(200, {
-                'Content-Type': 'application/octet-stream',
-                'Content-Length': stat.size,
-                'Content-Disposition': `attachment; filename=${filename}`
-            });
-            fs.createReadStream(filePath).pipe(res);
-        } else {
-            res.writeHead(404, { 'Content-Type': 'application/json' });
-            res.end(JSON.stringify({ success: false, error: 'File not found' }));
+            console.log(`尝试下载文件: ${filePath}`);
+
+            if (fs.existsSync(filePath)) {
+                const stat = fs.statSync(filePath);
+                const contentType = getContentType(path.extname(filename));
+                
+                res.writeHead(200, {
+                    'Content-Type': contentType,
+                    'Content-Length': stat.size,
+                    'Content-Disposition': `attachment; filename=${filename}`
+                });
+                
+                const fileStream = fs.createReadStream(filePath);
+                fileStream.pipe(res);
+                
+                fileStream.on('error', (error) => {
+                    console.error('文件流错误:', error);
+                    res.writeHead(500, { 'Content-Type': 'application/json' });
+                    res.end(JSON.stringify({ success: false, error: 'File stream error' }));
+                });
+            } else {
+                console.error('文件不存在:', filePath);
+                res.writeHead(404, { 'Content-Type': 'application/json' });
+                res.end(JSON.stringify({ success: false, error: 'File not found' }));
+            }
+        } catch (error) {
+            console.error('下载处理错误:', error);
+            res.writeHead(500, { 'Content-Type': 'application/json' });
+            res.end(JSON.stringify({ success: false, error: error.message }));
         }
     }
     // 静态文件服务
@@ -124,6 +147,23 @@ const server = http.createServer(async (req, res) => {
         });
     }
 });
+
+// 获取文件内容类型
+function getContentType(extname) {
+    switch (extname.toLowerCase()) {
+        case '.png':
+            return 'image/png';
+        case '.jpg':
+        case '.jpeg':
+            return 'image/jpeg';
+        case '.json':
+            return 'application/json';
+        case '.litematic':
+            return 'application/octet-stream';
+        default:
+            return 'application/octet-stream';
+    }
+}
 
 // 清理函数
 process.on('SIGINT', async () => {
