@@ -178,6 +178,8 @@ class LitematicViewerAPI {
      * @param {number} [options.cameraPitch=0.8] - 相机俯仰角
      * @param {number} [options.cameraYaw=0.5] - 相机偏航角
      * @param {boolean} [options.autoPosition=true] - 是否自动定位
+     * @param {boolean} [options.antialias=true] - 是否启用多重采样抗锯齿
+     * @param {string} [options.quality='high'] - 渲染质量选项
      * @returns {Promise<string>} - 返回 base64 格式的图片数据
      */
     async renderToImage(options = {}) {
@@ -190,10 +192,12 @@ class LitematicViewerAPI {
             height = 600,
             cameraPitch = this.cameraPitch,
             cameraYaw = this.cameraYaw,
-            autoPosition = true
+            autoPosition = true,
+            antialias = true,
+            quality = 'high' // 新增：渲染质量选项
         } = options;
 
-        console.log('开始渲染，参数:', { width, height, cameraPitch, cameraYaw, autoPosition });
+        console.log('开始渲染，参数:', { width, height, cameraPitch, cameraYaw, autoPosition, antialias, quality });
 
         // 清理旧的画布
         if (this.canvas && this.canvas.parentNode) {
@@ -203,14 +207,30 @@ class LitematicViewerAPI {
         // 创建新的画布
         this.canvas = document.createElement('canvas');
         document.body.appendChild(this.canvas);
-        this.canvas.width = width;
-        this.canvas.height = height;
         
-        // 创建 WebGL 上下文
+        // 根据质量设置调整实际渲染分辨率
+        let renderWidth = width;
+        let renderHeight = height;
+        if (quality === 'high') {
+            renderWidth = width * 2;
+            renderHeight = height * 2;
+        } else if (quality === 'ultra') {
+            renderWidth = width * 4;
+            renderHeight = height * 4;
+        }
+        
+        this.canvas.width = renderWidth;
+        this.canvas.height = renderHeight;
+        
+        // 创建 WebGL 上下文，增加更多质量相关选项
         this.webglContext = this.canvas.getContext('webgl', {
-            antialias: true,
+            antialias: antialias,
             depth: true,
-            preserveDrawingBuffer: true
+            preserveDrawingBuffer: true,
+            alpha: true,
+            stencil: true,
+            premultipliedAlpha: true,
+            failIfMajorPerformanceCaveat: false
         });
 
         if (!this.webglContext) {
@@ -218,11 +238,21 @@ class LitematicViewerAPI {
         }
 
         // 设置 WebGL 状态
-        this.webglContext.viewport(0, 0, width, height);
+        this.webglContext.viewport(0, 0, renderWidth, renderHeight);
         this.webglContext.clearColor(0.9, 0.9, 0.9, 1.0);
         this.webglContext.clear(this.webglContext.COLOR_BUFFER_BIT | this.webglContext.DEPTH_BUFFER_BIT);
         this.webglContext.enable(this.webglContext.DEPTH_TEST);
         this.webglContext.enable(this.webglContext.CULL_FACE);
+        
+        // 启用多重采样抗锯齿
+        if (antialias) {
+            this.webglContext.enable(this.webglContext.SAMPLE_COVERAGE);
+            this.webglContext.sampleCoverage(1.0, false);
+        }
+
+        // 设置纹理过滤质量
+        this.webglContext.texParameteri(this.webglContext.TEXTURE_2D, this.webglContext.TEXTURE_MIN_FILTER, this.webglContext.LINEAR_MIPMAP_LINEAR);
+        this.webglContext.texParameteri(this.webglContext.TEXTURE_2D, this.webglContext.TEXTURE_MAG_FILTER, this.webglContext.LINEAR);
 
         try {
             // 创建结构
@@ -234,12 +264,17 @@ class LitematicViewerAPI {
             console.log('Y: 0 ->', size[1]);
             console.log('Z: 0 ->', size[2]);
 
-            // 创建渲染器
+            // 创建渲染器，增加更多渲染选项
             const renderer = new deepslate.StructureRenderer(
                 this.webglContext, 
                 structure,
                 deepslateResources,
-                {chunkSize: 8}
+                {
+                    chunkSize: 8,
+                    enableShadows: true,
+                    enableAmbientOcclusion: true,
+                    textureQuality: quality
+                }
             );
 
             // 更新全局相机状态
@@ -289,8 +324,24 @@ class LitematicViewerAPI {
             renderer.drawStructure(view);
             renderer.drawGrid(view);
 
-            // 获取渲染结果
-            const imageData = this.canvas.toDataURL('image/png');
+            // 渲染完成后，如果使用了高质量渲染，需要将图像缩放到目标尺寸
+            let finalImageData;
+            if (quality !== 'normal') {
+                // 创建临时画布用于缩放
+                const tempCanvas = document.createElement('canvas');
+                tempCanvas.width = width;
+                tempCanvas.height = height;
+                const tempCtx = tempCanvas.getContext('2d');
+                
+                // 使用高质量缩放
+                tempCtx.imageSmoothingEnabled = true;
+                tempCtx.imageSmoothingQuality = 'high';
+                tempCtx.drawImage(this.canvas, 0, 0, width, height);
+                
+                finalImageData = tempCanvas.toDataURL('image/png');
+            } else {
+                finalImageData = this.canvas.toDataURL('image/png');
+            }
             
             // 清理资源
             if (this.canvas && this.canvas.parentNode) {
@@ -299,7 +350,7 @@ class LitematicViewerAPI {
             this.canvas = null;
             this.webglContext = null;
 
-            return imageData;
+            return finalImageData;
 
         } catch (error) {
             console.error('渲染错误:', error);
@@ -418,5 +469,6 @@ class LitematicViewerAPI {
     }
 }
 
-// 导出 API 实例
-const litematicViewerAPI = new LitematicViewerAPI(); 
+// 创建并导出 API 实例
+const litematicViewerAPI = new LitematicViewerAPI();
+window.litematicViewerAPI = litematicViewerAPI; // 确保在全局作用域中可用 

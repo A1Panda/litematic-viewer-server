@@ -1,0 +1,202 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Litematic Viewer API 示例</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            margin: 20px;
+            background: #f0f0f0;
+        }
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .upload-area {
+            border: 2px dashed #ccc;
+            padding: 20px;
+            text-align: center;
+            margin: 20px 0;
+            border-radius: 4px;
+        }
+        .upload-area.dragover {
+            border-color: #4CAF50;
+            background: #f8f8f8;
+        }
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            background: #f8f8f8;
+            border-radius: 4px;
+        }
+        .preview {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            margin-top: 10px;
+        }
+        .preview img {
+            max-width: 200px;
+            height: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .material-list {
+            margin-top: 20px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        .material-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 5px;
+            border-bottom: 1px solid #eee;
+        }
+        .material-item:nth-child(odd) {
+            background: #f5f5f5;
+        }
+        .download-btn {
+            display: inline-block;
+            padding: 8px 16px;
+            background: #4CAF50;
+            color: white;
+            text-decoration: none;
+            border-radius: 4px;
+            margin: 5px;
+        }
+        .download-btn:hover {
+            background: #45a049;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Litematic Viewer API 示例</h1>
+        
+        <div class="upload-area" id="uploadArea">
+            <p>拖放 .litematic 文件到这里，或点击选择文件</p>
+            <input type="file" id="fileInput" accept=".litematic" style="display: none;">
+            <button onclick="document.getElementById('fileInput').click()">选择文件</button>
+        </div>
+
+        <div class="result" id="result" style="display: none;">
+            <h3>处理结果</h3>
+            <div class="preview" id="preview"></div>
+            <div class="material-list" id="materialList"></div>
+            <div id="downloadLinks"></div>
+        </div>
+    </div>
+
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const result = document.getElementById('result');
+        const preview = document.getElementById('preview');
+        const materialList = document.getElementById('materialList');
+        const downloadLinks = document.getElementById('downloadLinks');
+
+        // 拖放处理
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            const file = e.dataTransfer.files[0];
+            if (file && file.name.endsWith('.litematic')) {
+                handleFile(file);
+            }
+        });
+
+        // 文件选择处理
+        fileInput.addEventListener('change', (e) => {
+            const file = e.target.files[0];
+            if (file) {
+                handleFile(file);
+            }
+        });
+
+        // 处理文件上传
+        async function handleFile(file) {
+            const formData = new FormData();
+            formData.append('file', file);
+
+            try {
+                const response = await fetch('/api/upload', {
+                    method: 'POST',
+                    body: formData
+                });
+
+                const result = await response.json();
+                
+                if (result.success) {
+                    displayResults(result);
+                } else {
+                    alert('处理失败: ' + result.error);
+                }
+            } catch (error) {
+                alert('上传失败: ' + error.message);
+            }
+        }
+
+        // 显示处理结果
+        function displayResults(result) {
+            result.style.display = 'block';
+            preview.innerHTML = '';
+            materialList.innerHTML = '';
+            downloadLinks.innerHTML = '';
+
+            // 显示预览图
+            const views = ['frontView', 'sideView', 'topView'];
+            views.forEach(view => {
+                const img = document.createElement('img');
+                img.src = `/api/download/${result.processId}/${view}.png`;
+                preview.appendChild(img);
+            });
+
+            // 显示材料列表
+            fetch(`/api/download/${result.processId}/materials.json`)
+                .then(response => response.json())
+                .then(materials => {
+                    Object.entries(materials)
+                        .sort(([,a], [,b]) => b - a)
+                        .forEach(([name, count]) => {
+                            const item = document.createElement('div');
+                            item.className = 'material-item';
+                            item.innerHTML = `
+                                <span>${name.replace('minecraft:', '')}</span>
+                                <span>${count}</span>
+                            `;
+                            materialList.appendChild(item);
+                        });
+                });
+
+            // 显示下载链接
+            const files = [
+                { name: '原始文件', path: 'original.litematic' },
+                { name: '材料列表', path: 'materials.json' }
+            ];
+
+            files.forEach(file => {
+                const link = document.createElement('a');
+                link.className = 'download-btn';
+                link.href = `/api/download/${result.processId}/${file.path}`;
+                link.textContent = `下载${file.name}`;
+                downloadLinks.appendChild(link);
+            });
+        }
+    </script>
+</body>
+</html> 
