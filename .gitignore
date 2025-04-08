@@ -1,5 +1,8 @@
 # Dependencies
 node_modules/
+src/outputs/
+src/uploads/
+TESTAPI/downloads/
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
@@ -35,4 +38,4 @@ logs/
 uploads/
 processed/
 screenshots/
-src/outputs/
+
