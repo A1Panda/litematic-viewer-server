@@ -60,17 +60,10 @@ async function downloadBrowser() {
 
         console.log('浏览器下载完成:', result);
         
-        // 复制浏览器到目标目录
-        console.log('复制浏览器到目标目录...');
-        const targetDir = path.join(__dirname, '..', 'browsers', 'chrome');
-        if (!fs.existsSync(targetDir)) {
-            fs.mkdirSync(targetDir, { recursive: true });
-        }
-        
-        // 在Linux上，我们需要复制整个chrome-linux64目录
-        if (os.platform() === 'linux') {
-            const chromeDir = path.join(browserDir, 'chrome', 'linux-135.0.7049.42', 'chrome-linux64');
-            const targetDir = path.join(browserDir, 'chrome-linux64');
+        // 在Windows上，我们需要复制整个chrome-win64目录
+        if (os.platform() === 'win32') {
+            const chromeDir = path.join(browserDir, 'chrome', 'win64-135.0.7049.42', 'chrome-win64');
+            const targetDir = path.join(browserDir, 'chrome-win64');
             
             // 如果目标目录已存在，先删除
             if (fs.existsSync(targetDir)) {
@@ -82,32 +75,23 @@ async function downloadBrowser() {
             console.log(`复制Chrome目录从 ${chromeDir} 到 ${targetDir}`);
             fs.cpSync(chromeDir, targetDir, { recursive: true });
             
-            // 设置可执行权限
-            const chromePath = path.join(targetDir, 'chrome');
-            fs.chmodSync(chromePath, '755');
+            // 创建一个符号链接到chrome.exe
+            const chromePath = path.join(targetDir, 'chrome.exe');
+            const symlinkPath = path.join(browserDir, 'chrome.exe');
             
-            // 设置所有文件的权限
-            const setPermissions = (dir) => {
-                const files = fs.readdirSync(dir);
-                for (const file of files) {
-                    const filePath = path.join(dir, file);
-                    const stat = fs.statSync(filePath);
-                    if (stat.isDirectory()) {
-                        setPermissions(filePath);
-                    } else {
-                        fs.chmodSync(filePath, '644');
-                    }
-                }
-            };
+            if (fs.existsSync(symlinkPath)) {
+                fs.unlinkSync(symlinkPath);
+            }
             
-            setPermissions(targetDir);
+            // 直接复制文件而不是创建符号链接
+            fs.copyFileSync(chromePath, symlinkPath);
             
             console.log('Chrome安装完成');
-            console.log('可执行文件路径:', chromePath);
+            console.log('可执行文件路径:', symlinkPath);
             
             // 验证文件是否存在和可访问
             try {
-                const stats = fs.statSync(chromePath);
+                const stats = fs.statSync(symlinkPath);
                 console.log('Chrome可执行文件状态:', {
                     大小: stats.size,
                     权限: stats.mode,
@@ -119,9 +103,10 @@ async function downloadBrowser() {
                 throw error;
             }
         } else {
-            // Windows/macOS的处理保持不变
-            const targetPath = path.join(targetDir, executableName);
+            // Linux/macOS的处理保持不变
+            const targetPath = path.join(browserDir, executableName);
             fs.copyFileSync(result.executablePath, targetPath);
+            fs.chmodSync(targetPath, '755');
             console.log('浏览器已复制到:', targetPath);
         }
         
