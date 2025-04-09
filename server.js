@@ -73,7 +73,7 @@ const server = http.createServer(async (req, res) => {
             
             // 构建正确的文件路径
             const baseName = path.basename(filename, path.extname(filename));
-            const filePath = path.join(processor.outputDir, `test_${processId}`, filename);
+            const filePath = path.join(processor.outputDir, `${processId}`, filename);
 
             console.log(`尝试下载文件: ${filePath}`);
 
