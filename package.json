@@ -8,7 +8,8 @@
     "dev": "nodemon server.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "eslint .",
-    "format": "prettier --write \"**/*.{js,json,md}\""
+    "format": "prettier --write \"**/*.{js,json,md}\"",
+    "download-browser": "node scripts/download-browser.js"
   },
   "keywords": [
     "minecraft",
@@ -31,6 +32,7 @@
     "node": ">=14.0.0"
   },
   "dependencies": {
+    "@puppeteer/browsers": "^2.10.0",
     "axios": "^1.8.4",
     "formidable": "^2.1.1",
     "pako": "^2.1.0",

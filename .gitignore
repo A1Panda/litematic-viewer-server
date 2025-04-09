@@ -6,6 +6,7 @@ TESTAPI/downloads
 npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
+browsers/chrome/*
 
 # Environment variables
 .env

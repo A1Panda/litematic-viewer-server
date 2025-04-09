@@ -3,6 +3,8 @@ const fs = require('fs');
 const path = require('path');
 const { v4: uuidv4 } = require('uuid');
 const pako = require('pako');
+const os = require('os');
+const process = require('process');
 
 class LitematicProcessor {
     constructor() {
@@ -28,17 +30,69 @@ class LitematicProcessor {
         }
     }
 
+    getBrowserPath() {
+        const platform = os.platform();
+        if (platform === 'win32') {
+            // Windows下需要使用chrome-win64目录中的chrome.exe
+            const browserPath = path.join(__dirname, '..', 'browsers', 'chrome', 'chrome-win64', 'chrome.exe');
+            if (!fs.existsSync(browserPath)) {
+                throw new Error(`Chrome可执行文件不存在: ${browserPath}`);
+            }
+            // 验证文件权限
+            try {
+                const stats = fs.statSync(browserPath);
+                console.log('Chrome可执行文件状态:', {
+                    大小: stats.size,
+                    权限: stats.mode,
+                    创建时间: stats.birthtime,
+                    修改时间: stats.mtime
+                });
+            } catch (error) {
+                console.error('无法访问Chrome可执行文件:', error);
+                throw error;
+            }
+            return browserPath;
+        } else {
+            // Linux/macOS
+            const executableName = 'chrome';
+            const browserPath = path.join(__dirname, '..', 'browsers', 'chrome', executableName);
+            if (!fs.existsSync(browserPath)) {
+                throw new Error(`Chrome可执行文件不存在: ${browserPath}`);
+            }
+            return browserPath;
+        }
+    }
+
     async initialize() {
-        console.log('开始初始化浏览器...');
         try {
+            console.log('初始化无头浏览器...');
+            const browserPath = this.getBrowserPath();
+            console.log('使用浏览器路径:', browserPath);
+            
             this.browser = await puppeteer.launch({
                 headless: 'new',
-                args: ['--no-sandbox', '--disable-setuid-sandbox']
+                executablePath: browserPath,
+                args: [
+                    '--no-sandbox',
+                    '--disable-setuid-sandbox',
+                    '--disable-dev-shm-usage',
+                    '--disable-accelerated-2d-canvas',
+                    '--disable-gpu',
+                    '--window-size=1920x1080'
+                ]
             });
-            console.log('浏览器启动成功');
+            
+            console.log('无头浏览器初始化完成');
             
             this.page = await this.browser.newPage();
-            console.log('新页面创建成功');
+            console.log('新页面已创建');
+            
+            // 设置页面视口
+            await this.page.setViewport({
+                width: 1920,
+                height: 1080,
+                deviceScaleFactor: 1
+            });
             
             // 加载必要的脚本
             console.log('开始加载依赖脚本...');
@@ -155,6 +209,9 @@ class LitematicProcessor {
     async processLitematic(fileBuffer, originalFilename) {
         console.log('开始处理 Litematic 文件...');
         try {
+            // 初始化浏览器
+            await this.initialize();
+            
             // 生成唯一ID
             const processId = uuidv4();
             console.log(`生成处理ID: ${processId}`);
@@ -334,19 +391,23 @@ class LitematicProcessor {
                 success: false,
                 error: error.message
             };
+        } finally {
+            // 在生成结束后清理浏览器
+            if (this.browser) {
+                console.log('关闭浏览器...');
+                try {
+                    await this.browser.close();
+                    console.log('浏览器已关闭');
+                } catch (error) {
+                    console.error('关闭浏览器失败:', error);
+                }
+            }
         }
     }
 
     async cleanup() {
         console.log('开始清理资源...');
         
-        // 清理浏览器
-        if (this.browser) {
-            console.log('关闭浏览器...');
-            await this.browser.close();
-            console.log('浏览器已关闭');
-        }
-
         // 清理上传目录
         const uploadsDir = path.join(__dirname, 'uploads');
         console.log('清理上传目录...');
