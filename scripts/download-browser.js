@@ -86,6 +86,22 @@ async function downloadBrowser() {
             const chromePath = path.join(targetDir, 'chrome');
             fs.chmodSync(chromePath, '755');
             
+            // 设置所有文件的权限
+            const setPermissions = (dir) => {
+                const files = fs.readdirSync(dir);
+                for (const file of files) {
+                    const filePath = path.join(dir, file);
+                    const stat = fs.statSync(filePath);
+                    if (stat.isDirectory()) {
+                        setPermissions(filePath);
+                    } else {
+                        fs.chmodSync(filePath, '644');
+                    }
+                }
+            };
+            
+            setPermissions(targetDir);
+            
             console.log('Chrome安装完成');
             console.log('可执行文件路径:', chromePath);
             
