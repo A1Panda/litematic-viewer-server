@@ -60,6 +60,22 @@ async function downloadBrowser() {
 
         console.log('浏览器下载完成:', result);
         
+        // 复制浏览器到目标目录
+        console.log('复制浏览器到目标目录...');
+        const targetDir = path.join(__dirname, '..', 'browsers', 'chrome');
+        if (!fs.existsSync(targetDir)) {
+            fs.mkdirSync(targetDir, { recursive: true });
+        }
+        
+        // 确保目标路径是文件
+        const targetPath = path.join(targetDir, 'chrome');
+        if (fs.existsSync(targetPath) && fs.statSync(targetPath).isDirectory()) {
+            fs.rmSync(targetPath, { recursive: true, force: true });
+        }
+        
+        fs.copyFileSync(result.executablePath, targetPath);
+        console.log('浏览器复制完成');
+        
         // 在Windows上，我们需要复制整个chrome-win64目录
         if (os.platform() === 'win32') {
             const chromeDir = path.join(browserDir, 'chrome', 'win64-135.0.7049.42', 'chrome-win64');
