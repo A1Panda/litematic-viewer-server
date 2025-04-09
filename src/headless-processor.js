@@ -67,7 +67,7 @@ class LitematicProcessor {
         console.log('初始化无头浏览器...');
         try {
             // 获取浏览器路径
-            const browserPath = path.join(__dirname, '..', 'browsers', 'chrome', 'chrome');
+            const browserPath = path.join(__dirname, '..', 'browsers', 'chrome', 'chrome-linux64', 'chrome');
             console.log('使用浏览器路径:', browserPath);
             
             // 验证浏览器文件是否存在
