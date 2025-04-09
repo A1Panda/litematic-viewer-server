@@ -64,11 +64,27 @@ class LitematicProcessor {
     }
 
     async initialize() {
+        console.log('初始化无头浏览器...');
         try {
-            console.log('初始化无头浏览器...');
-            const browserPath = this.getBrowserPath();
+            // 获取浏览器路径
+            const browserPath = path.join(__dirname, '..', 'browsers', 'chrome-linux64', 'chrome');
             console.log('使用浏览器路径:', browserPath);
             
+            // 验证浏览器文件是否存在
+            if (!fs.existsSync(browserPath)) {
+                throw new Error(`浏览器文件不存在: ${browserPath}`);
+            }
+            
+            // 验证文件权限
+            const stats = fs.statSync(browserPath);
+            if (!stats.isFile()) {
+                throw new Error(`浏览器路径不是文件: ${browserPath}`);
+            }
+            
+            // 设置可执行权限
+            fs.chmodSync(browserPath, '755');
+            
+            // 启动浏览器
             this.browser = await puppeteer.launch({
                 headless: 'new',
                 executablePath: browserPath,
@@ -78,128 +94,29 @@ class LitematicProcessor {
                     '--disable-dev-shm-usage',
                     '--disable-accelerated-2d-canvas',
                     '--disable-gpu',
-                    '--window-size=1920x1080'
+                    '--window-size=1920,1080'
                 ]
             });
             
-            console.log('无头浏览器初始化完成');
-            
+            // 创建新页面
             this.page = await this.browser.newPage();
-            console.log('新页面已创建');
             
-            // 设置页面视口
+            // 设置视口大小
             await this.page.setViewport({
                 width: 1920,
-                height: 1080,
-                deviceScaleFactor: 1
+                height: 1080
             });
             
-            // 加载必要的脚本
-            console.log('开始加载依赖脚本...');
+            // 加载页面
+            await this.page.goto('file://' + path.join(__dirname, '..', 'public', 'index.html'));
             
-            // 首先加载核心依赖
-            console.log('加载核心依赖...');
-            try {
-                await this.page.addScriptTag({ path: path.join(this.dependenciesDir, 'gl-matrix-min.js') });
-                console.log('gl-matrix 加载完成');
-                
-                await this.page.addScriptTag({ path: path.join(this.dependenciesDir, 'deepslate.js') });
-                console.log('deepslate 加载完成');
-
-                // 加载 pako 库
-                await this.page.addScriptTag({ path: path.join(__dirname, '..', 'node_modules', 'pako', 'dist', 'pako.min.js') });
-                console.log('pako 加载完成');
-                
-                // 等待核心依赖初始化
-                console.log('等待核心依赖初始化...');
-                await this.page.evaluate(() => {
-                    return new Promise((resolve, reject) => {
-                        console.log('检查核心依赖状态...');
-                        console.log('glMatrix:', !!window.glMatrix);
-                        console.log('deepslate:', !!window.deepslate);
-                        console.log('pako:', !!window.pako);
-                        
-                        if (window.glMatrix && window.deepslate && window.pako) {
-                            console.log('核心依赖已初始化');
-                            resolve();
-                        } else {
-                            let attempts = 0;
-                            const maxAttempts = 50;
-                            const checkInterval = setInterval(() => {
-                                attempts++;
-                                console.log(`检查核心依赖状态 (尝试 ${attempts}/${maxAttempts})...`);
-                                console.log('glMatrix:', !!window.glMatrix);
-                                console.log('deepslate:', !!window.deepslate);
-                                console.log('pako:', !!window.pako);
-                                
-                                if (window.glMatrix && window.deepslate && window.pako) {
-                                    console.log('核心依赖已初始化');
-                                    clearInterval(checkInterval);
-                                    resolve();
-                                } else if (attempts >= maxAttempts) {
-                                    console.log('核心依赖初始化超时');
-                                    clearInterval(checkInterval);
-                                    reject(new Error('核心依赖初始化超时'));
-                                }
-                            }, 100);
-                        }
-                    });
-                });
-                console.log('核心依赖初始化完成');
-            } catch (error) {
-                console.error('核心依赖加载失败:', error);
-                throw error;
-            }
+            // 等待页面加载完成
+            await this.page.waitForFunction(() => {
+                return typeof litematicViewerAPI !== 'undefined' && 
+                       typeof loadDeepslateResources !== 'undefined';
+            }, { timeout: 30000 });
             
-            // 然后加载其他脚本
-            console.log('加载其他脚本...');
-            const scripts = [
-                { name: 'assets.js', path: path.join(__dirname, '..', 'resource', 'assets.js') },
-                { name: 'opaque.js', path: path.join(__dirname, '..', 'resource', 'opaque.js') },
-                { name: 'deepslate-helpers.js', path: path.join(__dirname, 'deepslate-helpers.js') },
-                { name: 'litematic-utils.js', path: path.join(__dirname, 'litematic-utils.js') },
-                { name: 'api.js', path: path.join(__dirname, 'api.js') }
-            ];
-
-            for (const script of scripts) {
-                console.log(`加载脚本: ${script.name}`);
-                await this.page.addScriptTag({ path: script.path });
-                console.log(`脚本加载完成: ${script.name}`);
-            }
-
-            // 等待 API 初始化
-            console.log('等待 API 初始化...');
-            await this.page.evaluate(() => {
-                return new Promise((resolve, reject) => {
-                    console.log('开始检查 API 状态...');
-                    let attempts = 0;
-                    const maxAttempts = 50; // 最多等待 5 秒
-                    
-                    const checkAPI = () => {
-                        attempts++;
-                        console.log(`检查 API 状态 (尝试 ${attempts}/${maxAttempts})...`);
-                        console.log('当前全局对象:', {
-                            glMatrix: !!window.glMatrix,
-                            deepslate: !!window.deepslate,
-                            pako: !!window.pako,
-                            litematicViewerAPI: !!window.litematicViewerAPI
-                        });
-                        
-                        if (window.litematicViewerAPI) {
-                            console.log('API 已初始化完成');
-                            resolve();
-                        } else if (attempts >= maxAttempts) {
-                            console.log('API 初始化超时');
-                            reject(new Error('API 初始化超时'));
-                        } else {
-                            setTimeout(checkAPI, 100);
-                        }
-                    };
-                    
-                    checkAPI();
-                });
-            });
-            console.log('初始化完成');
+            console.log('无头浏览器初始化完成');
         } catch (error) {
             console.error('核心依赖加载失败:', error);
             throw error;
