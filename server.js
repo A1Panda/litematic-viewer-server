@@ -194,11 +194,6 @@ function getContentType(extname) {
     }
 }
 
-// 清理函数
-process.on('SIGINT', async () => {
-    await processor.cleanup();
-    process.exit();
-});
 
 const PORT = 3000;
 server.listen(PORT, () => {

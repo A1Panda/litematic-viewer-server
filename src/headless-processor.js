@@ -155,6 +155,12 @@ class LitematicProcessor {
     async processLitematic(fileBuffer, originalFilename) {
         console.log('开始处理 Litematic 文件...');
         try {
+            // 检查并初始化浏览器
+            if (!this.browser || !this.page) {
+                console.log('浏览器未初始化，开始初始化...');
+                await this.initialize();
+            }
+
             // 生成唯一ID
             const processId = uuidv4();
             console.log(`生成处理ID: ${processId}`);
@@ -319,6 +325,14 @@ class LitematicProcessor {
             console.log(`复制原始文件到: ${originalFile}`);
             fs.copyFileSync(uploadPath, originalFile);
 
+            // 渲染完成后清理浏览器
+            console.log('渲染完成，清理浏览器...');
+            if (this.browser) {
+                await this.browser.close();
+                this.browser = null;
+                this.page = null;
+            }
+
             console.log('处理完成');
             return {
                 success: true,
@@ -330,6 +344,12 @@ class LitematicProcessor {
 
         } catch (error) {
             console.error('处理过程中发生错误:', error);
+            // 发生错误时也清理浏览器
+            if (this.browser) {
+                await this.browser.close();
+                this.browser = null;
+                this.page = null;
+            }
             return {
                 success: false,
                 error: error.message
@@ -337,51 +357,6 @@ class LitematicProcessor {
         }
     }
 
-    async cleanup() {
-        console.log('开始清理资源...');
-        
-        // 清理浏览器
-        if (this.browser) {
-            console.log('关闭浏览器...');
-            await this.browser.close();
-            console.log('浏览器已关闭');
-        }
-
-        // 清理上传目录
-        const uploadsDir = path.join(__dirname, 'uploads');
-        console.log('清理上传目录...');
-        try {
-            const files = fs.readdirSync(uploadsDir);
-            for (const file of files) {
-                const filePath = path.join(uploadsDir, file);
-                if (fs.statSync(filePath).isFile()) {
-                    fs.unlinkSync(filePath);
-                    console.log(`已删除上传文件: ${file}`);
-                }
-            }
-        } catch (error) {
-            console.error('清理上传目录时出错:', error);
-        }
-
-        // 清理输出目录
-        const outputsDir = path.join(__dirname, 'outputs');
-        console.log('清理输出目录...');
-        try {
-            const dirs = fs.readdirSync(outputsDir);
-            for (const dir of dirs) {
-                const dirPath = path.join(outputsDir, dir);
-                if (fs.statSync(dirPath).isDirectory()) {
-                    // 删除目录及其内容
-                    fs.rmSync(dirPath, { recursive: true, force: true });
-                    console.log(`已删除输出目录: ${dir}`);
-                }
-            }
-        } catch (error) {
-            console.error('清理输出目录时出错:', error);
-        }
-
-        console.log('资源清理完成');
-    }
 }
 
 // 导出 LitematicProcessor 类
