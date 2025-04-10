@@ -8,6 +8,33 @@ const LitematicProcessor = require('./src/headless-processor');
 const processor = new LitematicProcessor();
 let isInitialized = false;
 
+// 清理目录
+function cleanupDirectory(dirPath) {
+    console.log(`清理目录: ${dirPath}`);
+    
+    if (fs.existsSync(dirPath)) {
+        const files = fs.readdirSync(dirPath);
+        for (const file of files) {
+            const filePath = path.join(dirPath, file);
+            if (fs.statSync(filePath).isDirectory()) {
+                // 删除目录及其内容
+                fs.rmSync(filePath, { recursive: true, force: true });
+                console.log(`已删除目录: ${filePath}`);
+            } else {
+                // 删除文件
+                fs.unlinkSync(filePath);
+                console.log(`已删除文件: ${filePath}`);
+            }
+        }
+    }
+}
+
+// 清理所有临时目录
+function cleanupAll() {
+    cleanupDirectory(processor.uploadDir);
+    cleanupDirectory(processor.outputDir);
+}
+
 // 初始化处理器
 async function initialize() {
     if (!isInitialized) {
@@ -15,6 +42,9 @@ async function initialize() {
         isInitialized = true;
     }
 }
+
+// 在服务器启动时清理所有临时目录
+cleanupAll();
 
 const server = http.createServer(async (req, res) => {
     const url = new URL(req.url, `http://${req.headers.host}`);
@@ -69,11 +99,10 @@ const server = http.createServer(async (req, res) => {
         try {
             const parts = url.pathname.split('/');
             const processId = parts[3];
-            const filename = parts[4];
+            const filename = decodeURIComponent(parts[4]);
             
             // 构建正确的文件路径
-            const baseName = path.basename(filename, path.extname(filename));
-            const filePath = path.join(processor.outputDir, `${processId}`, filename);
+            const filePath = path.join(processor.outputDir, processId, filename);
 
             console.log(`尝试下载文件: ${filePath}`);
 
@@ -84,7 +113,7 @@ const server = http.createServer(async (req, res) => {
                 res.writeHead(200, {
                     'Content-Type': contentType,
                     'Content-Length': stat.size,
-                    'Content-Disposition': `attachment; filename=${filename}`
+                    'Content-Disposition': `attachment; filename=${encodeURIComponent(filename)}`
                 });
                 
                 const fileStream = fs.createReadStream(filePath);
