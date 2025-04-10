@@ -230,7 +230,17 @@ class LitematicViewerAPI {
             alpha: true,
             stencil: true,
             premultipliedAlpha: true,
-            failIfMajorPerformanceCaveat: false
+            failIfMajorPerformanceCaveat: false,
+            powerPreference: 'high-performance',  // 优先使用高性能模式
+            desynchronized: false,                // 禁用异步渲染以确保最高质量
+            xrCompatible: false,                  // 禁用XR兼容性以提高性能
+            preserveDrawingBuffer: true,          // 保留绘图缓冲区
+            alpha: true,                          // 启用alpha通道
+            depth: true,                          // 启用深度测试
+            stencil: true,                        // 启用模板测试
+            antialias: true,                      // 启用抗锯齿
+            premultipliedAlpha: true,             // 启用预乘alpha
+            failIfMajorPerformanceCaveat: false   // 即使性能较低也继续
         });
 
         if (!this.webglContext) {
@@ -270,11 +280,53 @@ class LitematicViewerAPI {
                 structure,
                 deepslateResources,
                 {
-                    chunkSize: 8,
-                    enableShadows: true,
-                    enableAmbientOcclusion: true,
-                    textureQuality: quality
+                    // 基础渲染设置
+                    chunkSize: 8,                       // 区块大小,影响渲染性能
+                    
+                    // 光照和阴影
+                    enableShadows: true,                // 启用阴影渲染
+                    enableAmbientOcclusion: true,       // 启用环境光遮蔽
+                    
+                    // 纹理和质量设置
+                    textureQuality: quality,            // 纹理质量设置
+                    
+                    // 大气效果
+                    enableFog: true,                    // 启用雾效果
+                    fogDensity: 0.01,                   // 雾的密度
+                    
+                    // 后期处理效果
+                    enableBloom: true,                  // 启用泛光效果
+                    bloomIntensity: 0.5,                // 泛光强度
+                    enableSSAO: true,                   // 启用屏幕空间环境光遮蔽
+                    ssaoRadius: 0.5,                    // SSAO采样半径
+                    enableFXAA: true,                   // 启用快速近似抗锯齿
+                    enableTAA: true,                    // 启用时间性抗锯齿
+                    enableMotionBlur: false,            // 禁用动态模糊
+                    enableDepthOfField: false,          // 禁用景深效果
+                    
+                    // 透明材质优化
+                    transparentSorting: true,           // 启用透明材质排序
+                    transparentDepthWrite: false,       // 禁用透明材质的深度写入
+                    transparentBlending: 'normal',      // 使用标准混合模式
+                    transparentAlphaTest: 0.1,          // 设置透明测试阈值
+                    transparentRefraction: true,        // 启用折射效果
+                    transparentRefractionIndex: 1.5,    // 设置折射率（玻璃的折射率）
+                    transparentReflection: true,        // 启用反射效果
+                    transparentReflectionStrength: 0.8, // 设置反射强度
+                    transparentFresnel: true,           // 启用菲涅尔效应
+                    transparentFresnelBias: 0.1,        // 设置菲涅尔偏差
+                    transparentFresnelScale: 1.0,       // 设置菲涅尔缩放
+                    transparentFresnelPower: 2.0        // 设置菲涅尔幂次
                 }
+            );
+
+            // 设置WebGL混合模式
+            this.webglContext.enable(this.webglContext.BLEND);
+            this.webglContext.blendFuncSeparate(
+                this.webglContext.SRC_ALPHA,
+                this.webglContext.ONE_MINUS_SRC_ALPHA,
+                this.webglContext.ONE,
+                this.webglContext.ONE_MINUS_SRC_ALPHA
             );
 
             // 更新全局相机状态
