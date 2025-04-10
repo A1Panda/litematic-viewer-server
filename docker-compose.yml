@@ -1,0 +1,20 @@
+version: '3'
+
+services:
+  litematic-viewer:
+    build: .
+    container_name: litematic-viewer
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+      - ./src/uploads:/app/src/uploads
+      - ./src/outputs:/app/src/outputs
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+      start_period: 5s
+    shm_size: 1g 
