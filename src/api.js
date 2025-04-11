@@ -441,25 +441,52 @@ class LitematicViewerAPI {
             // 创建结构
             const structure = structureFromLitematic(this.structureLitematic);
             const size = structure.getSize();
-            console.log('结构大小:', size);
+            console.log('结构尺寸:', {
+                width: size[0],
+                height: size[1],
+                depth: size[2]
+            });
 
             // 计算结构中心点
             const centerX = size[0] / 2;
             const centerY = size[1] / 2;
             const centerZ = size[2] / 2;
+            console.log('结构中心点:', {
+                x: centerX,
+                y: centerY,
+                z: centerZ
+            });
 
-            // 计算合适的观察距离
-            const maxDimension = Math.max(size[0], size[1], size[2]);
-            const distance = maxDimension * 2;  // 基础观察距离
+            // 计算相机位置系数
+            // 根据结构尺寸动态调整系数
+            const maxSize = Math.max(size[0], size[1], size[2]);
+            const minSize = Math.min(size[0], size[1], size[2]);
+            const avgSize = (size[0] + size[1] + size[2]) / 3;
+            
+            // 基础系数调整
+            const frontDistance = avgSize * 1.3;  // 正视图距离
+            const sideDistance = avgSize * 1.2;   // 侧视图距离
+            const topDistance = avgSize * 1.4;    // 俯视图距离
+            
+            console.log('相机位置计算参数:', {
+                maxSize,
+                minSize,
+                avgSize,
+                frontDistance,
+                sideDistance,
+                topDistance
+            });
 
             // 渲染正视图 (正面)
             this.cameraPitch = 0;
             this.cameraYaw = 0;
-            vec3.set(this.cameraPos, 
-                -centerX,           // X轴对齐中心
-                -centerY,           // Y轴对齐中心
-                -distance/1.8 - centerZ // Z轴在结构前方,距离减半使视角更近
-            );
+            const frontPos = [
+                -centerX,
+                -centerY,
+                -frontDistance - centerZ
+            ];
+            console.log('正视图相机位置:', frontPos);
+            vec3.set(this.cameraPos, ...frontPos);
             const frontView = await this.renderToImage({
                 width,
                 height,
@@ -471,11 +498,13 @@ class LitematicViewerAPI {
             // 渲染侧视图 (右侧)
             this.cameraPitch = 0;
             this.cameraYaw = -Math.PI / 2;
-            vec3.set(this.cameraPos, 
-                -distance/1.8 - centerX, // X轴在结构右侧,距离减半使视角更近
-                -centerY,           // Y轴对齐中心
-                -centerZ,           // Z轴对齐中心
-            );
+            const sidePos = [
+                -sideDistance - centerX,
+                -centerY,
+                -centerZ
+            ];
+            console.log('侧视图相机位置:', sidePos);
+            vec3.set(this.cameraPos, ...sidePos);
             const sideView = await this.renderToImage({
                 width,
                 height,
@@ -485,13 +514,15 @@ class LitematicViewerAPI {
             });
 
             // 渲染俯视图 (顶部)
-            this.cameraPitch = Math.PI / 2; // 相机向下看
+            this.cameraPitch = Math.PI / 2;
             this.cameraYaw = 0;
-            vec3.set(this.cameraPos, 
-                -centerX,                  // X轴对齐中心
-                -distance/1.8 - centerY,   // Y轴在结构上方,距离减半使视角更近
-                -centerZ                   // Z轴对齐中心
-            );
+            const topPos = [
+                -centerX,
+                -topDistance - centerY,
+                -centerZ
+            ];
+            console.log('俯视图相机位置:', topPos);
+            vec3.set(this.cameraPos, ...topPos);
             const topView = await this.renderToImage({
                 width,
                 height,
