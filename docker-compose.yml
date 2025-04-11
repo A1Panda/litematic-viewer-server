@@ -8,11 +8,8 @@ services:
       - "3000:3000"
     volumes:
       - ./data:/app/data
-      - ./src/uploads:/app/src/uploads:rw,z
-      - ./src/outputs:/app/src/outputs:rw,z
-    environment:
-      - NODE_ENV=production
-    user: "1000:1000"
+      - ./src/uploads:/app/src/uploads
+      - ./src/outputs:/app/src/outputs
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]

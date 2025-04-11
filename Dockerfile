@@ -33,7 +33,8 @@ RUN apt-get update && apt-get install -y \
 # 创建一个非root用户运行应用
 RUN groupadd -r pptruser && useradd -r -g pptruser -G audio,video pptruser \
     && mkdir -p /home/pptruser/Downloads \
-    && chown -R pptruser:pptruser /home/pptruser
+    && chown -R pptruser:pptruser /home/pptruser \
+    && chown -R pptruser:pptruser /app
 
 # 设置环境变量
 ENV NODE_ENV=production
@@ -50,10 +51,11 @@ RUN npm install --production
 # 复制项目文件到工作目录
 COPY . .
 
-# 创建必要的目录并设置权限
-RUN mkdir -p /app/src/uploads /app/src/outputs /app/dependencies \
-    && chown -R pptruser:pptruser /app \
-    && chmod -R 777 /app/src/uploads /app/src/outputs /app/dependencies
+# 创建必要的目录
+RUN mkdir -p src/uploads src/outputs dependencies \
+    && chown -R pptruser:pptruser src/uploads \
+    && chown -R pptruser:pptruser src/outputs \
+    && chown -R pptruser:pptruser dependencies
 
 # 下载依赖文件
 RUN node download-dependencies.js
