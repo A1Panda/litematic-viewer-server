@@ -13,20 +13,24 @@
 
 ## 安装步骤
 
-## 直接部署
-
-1. 克隆仓库：
+1. 克隆仓库
 ```bash
-git clone https://github.com/your-username/litematic-viewer-server.git
+git clone https://github.com/A1Panda/litematic-viewer-server.git
 cd litematic-viewer-server
 ```
 
-2. 安装依赖：
+2. 安装依赖
 ```bash
 npm install
 ```
 
-3. 启动服务器：
+3. 调整目录权限
+```bash
+# 确保上传和输出目录有正确的权限
+sudo chmod -R 777 ./src/uploads ./src/outputs
+```
+
+4. 启动服务器
 ```bash
 npm start
 ```
