@@ -13,21 +13,113 @@
 
 ## 安装步骤
 
-1. 克隆仓库：
+1. 克隆仓库
 ```bash
-git clone https://github.com/your-username/litematic-viewer-server.git
+git clone https://github.com/A1Panda/litematic-viewer-server.git
 cd litematic-viewer-server
 ```
 
-2. 安装依赖：
+2. 安装依赖
 ```bash
 npm install
 ```
 
-3. 启动服务器：
+3. 调整目录权限
+```bash
+# 确保上传和输出目录有正确的权限
+sudo chmod -R 777 ./src/uploads ./src/outputs
+```
+
+4. 启动服务器
 ```bash
 npm start
 ```
+
+## Docker 部署
+
+提供了使用 Docker 快速部署 Litematic Viewer Server 的方法
+
+### 前提条件
+
+- 安装 [Docker](https://docs.docker.com/get-docker/)
+- 安装 [Docker Compose](https://docs.docker.com/compose/install/)（可选，用于更简单的部署）
+
+### 构建 Docker 镜像
+
+在项目根目录执行以下命令构建 Docker 镜像：
+
+```bash
+docker build -t litematic-viewer-server .
+```
+
+### 运行 Docker 容器
+
+#### 使用 Docker 命令运行
+
+```bash
+docker run -d --name litematic-viewer -p 3000:3000 litematic-viewer-server
+```
+
+#### 使用 Docker Compose 运行（推荐）
+
+创建 `docker-compose.yml` 文件：
+
+```yaml
+version: '3'
+services:
+  litematic-viewer:
+    build: .
+    container_name: litematic-viewer
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data
+    restart: unless-stopped
+```
+
+然后运行：
+
+```bash
+docker-compose up -d
+```
+
+## 访问服务
+
+服务启动后，可以通过以下地址访问：
+
+- 网页界面：http://localhost:3000/
+- API调试页面：http://localhost:3000/api-debug.html
+- API示例页面：http://localhost:3000/api-example.html
+
+### 注意事项
+
+1. Docker 容器内使用了非 root 用户 `pptruser` 来运行 Chromium，这是出于安全考虑。
+2. 如果遇到权限问题，可能需要调整容器内文件的所有权。
+3. 该应用程序在容器内使用 Chromium 无头浏览器进行渲染，确保服务器有足够的资源。
+
+### 疑难解答
+
+#### 容器无法启动
+  
+  检查日志：
+  ```bash
+  docker logs litematic-viewer
+  ```
+
+#### Chromium 无法启动
+
+  可能原因是资源限制或权限问题。尝试增加容器资源限制：
+  ```bash
+  docker run -d --name litematic-viewer -p 3000:3000 --shm-size=1gb litematic-viewer-server
+  ```
+
+#### 文件上传失败
+
+  检查容器内的权限：
+  ```bash
+  docker exec -it litematic-viewer bash
+  ls -la src/uploads
+  ``` 
 
 服务器将在 http://localhost:3000 启动。
 
