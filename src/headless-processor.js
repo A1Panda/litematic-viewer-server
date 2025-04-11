@@ -13,34 +13,18 @@ class LitematicProcessor {
         this.outputDir = path.join(__dirname, 'outputs');
         this.dependenciesDir = path.join(__dirname, '..', 'dependencies');
         
-        // 确保目录存在并设置权限
-        try {
-            if (!fs.existsSync(this.uploadDir)) {
-                console.log(`创建上传目录: ${this.uploadDir}`);
-                fs.mkdirSync(this.uploadDir, { recursive: true, mode: 0o777 });
-            } else {
-                // 确保目录有正确的权限
-                fs.chmodSync(this.uploadDir, 0o777);
-            }
-
-            if (!fs.existsSync(this.outputDir)) {
-                console.log(`创建输出目录: ${this.outputDir}`);
-                fs.mkdirSync(this.outputDir, { recursive: true, mode: 0o777 });
-            } else {
-                // 确保目录有正确的权限
-                fs.chmodSync(this.outputDir, 0o777);
-            }
-
-            if (!fs.existsSync(this.dependenciesDir)) {
-                console.log(`创建依赖目录: ${this.dependenciesDir}`);
-                fs.mkdirSync(this.dependenciesDir, { recursive: true, mode: 0o777 });
-            } else {
-                // 确保目录有正确的权限
-                fs.chmodSync(this.dependenciesDir, 0o777);
-            }
-        } catch (error) {
-            console.error('目录初始化失败:', error);
-            throw error;
+        // 确保目录存在
+        if (!fs.existsSync(this.uploadDir)) {
+            console.log(`创建上传目录: ${this.uploadDir}`);
+            fs.mkdirSync(this.uploadDir, { recursive: true });
+        }
+        if (!fs.existsSync(this.outputDir)) {
+            console.log(`创建输出目录: ${this.outputDir}`);
+            fs.mkdirSync(this.outputDir, { recursive: true });
+        }
+        if (!fs.existsSync(this.dependenciesDir)) {
+            console.log(`创建依赖目录: ${this.dependenciesDir}`);
+            fs.mkdirSync(this.dependenciesDir, { recursive: true });
         }
     }
 
