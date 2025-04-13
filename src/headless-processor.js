@@ -30,44 +30,10 @@ class LitematicProcessor {
         }
     }
 
-    getBrowserPath() {
-        const platform = os.platform();
-        if (platform === 'win32') {
-            // Windows下需要使用chrome-win64目录中的chrome.exe
-            const browserPath = path.join(__dirname, '..', 'browsers', 'chrome', 'chrome-win64', 'chrome.exe');
-            if (!fs.existsSync(browserPath)) {
-                throw new Error(`Chrome可执行文件不存在: ${browserPath}`);
-            }
-            // 验证文件权限
-            try {
-                const stats = fs.statSync(browserPath);
-                console.log('Chrome可执行文件状态:', {
-                    大小: stats.size,
-                    权限: stats.mode,
-                    创建时间: stats.birthtime,
-                    修改时间: stats.mtime
-                });
-            } catch (error) {
-                console.error('无法访问Chrome可执行文件:', error);
-                throw error;
-            }
-            return browserPath;
-        } else {
-            // Linux/macOS
-            const executableName = 'chrome';
-            const browserPath = path.join(__dirname, '..', 'browsers', 'chrome', executableName);
-            if (!fs.existsSync(browserPath)) {
-                throw new Error(`Chrome可执行文件不存在: ${browserPath}`);
-            }
-            return browserPath;
-        }
-    }
 
     async initialize() {
         try {
             console.log('初始化无头浏览器...');
-            const browserPath = this.getBrowserPath();
-            console.log('使用浏览器路径:', browserPath);
             
             this.browser = await puppeteer.launch({
                 headless: 'new',
@@ -209,10 +175,7 @@ class LitematicProcessor {
         console.log('开始处理 Litematic 文件...');
         try {
             // 检查并初始化浏览器
-            if (!this.browser || !this.page) {
-                console.log('浏览器未初始化，开始初始化...');
-                await this.initialize();
-            }
+            await this.initialize();
 
             // 生成唯一ID
             const processId = uuidv4();
